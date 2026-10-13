@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="noindex, nofollow">
+<title>Website Browsing Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<!--
+  WEBSITE BROWSING STUDY · Maison Améline · Bonbon Mini · PL1 / PL4
+  ------------------------------------------------------------------
+  Participant link (Prolific):  https://<you>.github.io/<repo>/?PROLIFIC_PID={{%PROLIFIC_PID%}}&STUDY_ID={{%STUDY_ID%}}&SESSION_ID={{%SESSION_ID%}}
+  Test link (saved with is_test = 1):  .../?test=1            force a version:  .../?test=1&cond=A   or   &cond=B
+  Before launch: paste the Apps Script /exec URL into API_URL and the Prolific completion URL below.
+-->
+<script>
+  var API_URL = 'https://script.google.com/macros/s/AKfycbwYOSrcDBfAb91TXY6NxwWAz-ArR0RifpuRFbEk1VH8dcyvaGXZN1LjsI3TjcUJd5CB/exec';                      // Google Apps Script web-app URL ending in /exec. Empty = demo mode (nothing saved).
+  var PROLIFIC_COMPLETION_URL = '';      // e.g. https://app.prolific.com/submissions/complete?cc=XXXXXXX
+  var PROLIFIC_COMPLETION_CODE = '';     // shown to the participant if the URL above is empty
+</script>
+<style>
+:root{
+  --white:#FFFFFF; --pearl:#FAF7F4; --blush:#E0D0C9; --rose:#A9737A; --gold:#C8B08A;
+  --ink:#2E2A2B; --muted:#6F6163; --line:#E8E0DA; --err:#9B3B3B; --ok:#4E6B57;
+  --serif:"Bodoni Moda", Didot, "Bodoni 72", Georgia, serif;
+  --sans:"Jost", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--pearl);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--rose);outline-offset:3px}
+img{max-width:100%;display:block}
+
+/* study chrome */
+.top{background:#fff;border-bottom:1px solid var(--line)}
+.top .in{max-width:880px;margin:0 auto;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.top b{font-family:var(--serif);font-weight:400;font-size:17px;letter-spacing:.06em}
+.top span{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
+main{max-width:880px;margin:0 auto;padding:40px 24px 80px}
+.card{background:#fff;border:1px solid var(--line);padding:clamp(24px,4vw,44px);margin-bottom:22px}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4vw,40px);line-height:1.15;margin:0 0 18px}
+h2{font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.25;margin:0 0 12px}
+p{margin:0 0 14px}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.notice{background:var(--pearl);border:1px solid var(--line);padding:20px 22px;margin:18px 0 22px}
+.notice h2{font-size:19px;margin-bottom:10px}
+ol.steps{margin:0;padding-left:20px}
+ol.steps li{margin-bottom:10px}
+
+.choice{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid var(--line);background:#fff;cursor:pointer;margin-bottom:8px;min-height:44px}
+.choice:hover{border-color:#cdbfb9}
+.choice input{margin-top:5px;accent-color:var(--ink);width:16px;height:16px;flex:none}
+.choice.inline{display:inline-flex;margin-right:8px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
+label.field{display:block;margin:16px 0}
+label.field span{display:block;font-size:12px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px}
+input[type=text],input[type=number],textarea{width:100%;border:1px solid #CDBFB9;background:#fff;padding:11px 12px;font-size:16px;border-radius:0}
+input[type=text]:focus,input[type=number]:focus,textarea:focus{outline:none;border-color:var(--ink)}
+input:disabled{background:#F2EEEB;color:#9A8F90}
+textarea{min-height:90px;resize:vertical}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 34px;background:var(--ink);color:#fff;border:1px solid var(--ink);font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;font-weight:400;cursor:pointer}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink)}
+.actions{display:flex;justify-content:space-between;gap:12px;margin-top:28px;flex-wrap:wrap}
+.actions .right{margin-left:auto}
+.msg{min-height:24px;font-size:14px;margin-top:12px}
+.msg.err{color:var(--err)}
+.msg.ok{color:var(--ok)}
+
+/* likert */
+.scale-note{font-size:14px;color:var(--muted);margin:2px 0 16px}
+table.likert{width:100%;border-collapse:collapse;margin:6px 0 10px}
+table.likert th{font-weight:400;font-size:13px;color:var(--muted);padding:8px 2px;text-align:center;width:52px}
+table.likert th.st{text-align:left;width:auto}
+table.likert td{border-top:1px solid var(--line);padding:12px 2px;text-align:center}
+table.likert td.st{text-align:left;padding-right:14px;font-size:15.5px}
+table.likert label{display:flex;justify-content:center;align-items:center;min-height:40px;cursor:pointer}
+table.likert input{width:18px;height:18px;accent-color:var(--ink);cursor:pointer}
+.sec{margin-top:30px}
+.sec:first-of-type{margin-top:0}
+.q{margin:24px 0}
+.q > p.qt{font-weight:400;margin-bottom:10px}
+.wtp{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wtp .cur{font-size:16px}
+.wtp input[type=number]{max-width:200px}
+.single7{display:flex;gap:8px;flex-wrap:wrap}
+.single7 .choice{min-width:64px;justify-content:center}
+
+.target{display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;align-items:center;background:#fff;border:1px solid var(--line);padding:18px;margin-bottom:22px}
+.target img{width:180px;height:180px;object-fit:cover;background:#F6F0EC}
+.target b{font-family:var(--serif);font-weight:400;font-size:22px;display:block;margin-bottom:4px}
+.target .c{font-size:15px;margin-bottom:10px}
+.target .n{font-size:14px;color:var(--muted);margin:0}
+.pg{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+
+/* browsing stage */
+#site{position:fixed;inset:0;border:0;width:100%;height:100%;background:#fff;z-index:5}
+.help{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:10;background:rgba(255,255,255,.94);border:1px solid var(--line);font-size:12px;letter-spacing:.06em;padding:8px 12px;cursor:pointer;color:var(--muted)}
+.help:hover{color:var(--ink)}
+.dialog{position:fixed;inset:0;z-index:20;background:rgba(46,42,43,.4);display:flex;align-items:center;justify-content:center;padding:16px}
+.dialog .card{max-width:560px;width:100%;margin:0}
+.banner{background:#FFF6E5;border-bottom:1px solid #EBD9B5;color:#6B5420;font-size:13px;text-align:center;padding:8px 16px}
+.loading{text-align:center;padding:60px 0;color:var(--muted)}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+@media (max-width:640px){
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .target{grid-template-columns:minmax(0,1fr)}
+  table.likert th{width:34px;font-size:12px}
+  table.likert td.st{font-size:14.5px}
+}
+</style>
+</head>
+<body>
+<div id="banner" class="banner" hidden></div>
+<div id="root"></div>
+
+<script>
+(function(){
+  /* =====================================================================
+     1. Constants: questionnaire text is verbatim from the study document
+     ===================================================================== */
+  var COLORS = {1:{id:'poudre',name:'Rose Poudré'}, 2:{id:'beige',name:'Beige Poudré'}, 3:{id:'noir',name:'Noir'}, 4:{id:'perle',name:'Perle'}};
+  var ROUTE_PAGES = { 0:['hero+collection+story+products'], 1:['hero','collection','story','products'] }; // pages before the PDP
+  var AGREE_NOTE = '1 = Strongly disagree · 4 = Neither agree nor disagree · 7 = Strongly agree';
+
+  var P2_LUX = [['lux1','The Bonbon Mini shown above feels luxurious.'],['lux2','The Bonbon Mini shown above feels prestigious.'],
+                ['lux3','The Bonbon Mini shown above feels high-class.'],['lux4','The Bonbon Mini shown above feels attractive.']];
+  var P2_PI  = [['pi1','I would consider purchasing the Bonbon Mini shown above at US$420.'],
+                ['pi2','The likelihood that I would purchase the Bonbon Mini shown above at US$420 is high.'],
+                ['pi3','My willingness to purchase the Bonbon Mini shown above at US$420 is high.']];
+  var P3_RIT = [['rit1','The browsing process felt like following a prescribed procedure.'],['rit2','The browsing process had a ceremonial quality.'],
+                ['rit3','The actions I performed while browsing felt symbolically meaningful.'],
+                ['rit4','Following the sequence had meaning beyond simply obtaining product information.'],
+                ['rit5','I felt that I was taking part in a ritual during the browsing process.']];
+  var P4_MC  = [['mc1','I moved through several separate pages before reaching the Bonbon Mini product page.'],
+                ['mc2','Reaching the Bonbon Mini product page involved a long sequence of page-to-page transitions.'],
+                ['mc3','The navigation route from the homepage to the Bonbon Mini product page felt long.']];
+  var P5_DIA = [['dia1','The website included a story about the brand or its collection.'],['dia2','The website looked like a real handbag brand website.']];
+  var REC1 = [[1,'Add to Bag'],[2,'Book a Hotel'],[3,'Play Video'],[4,'Subscribe to Newsletter'],[5,'Not sure']];
+  var REC2 = [[1,'For her daughter’s eighteenth birthday'],[2,'For a sporting competition'],[3,'For a concert performance'],[4,'For a hunting expedition'],[5,'Not sure']];
+  var TECH1 = [[0,'No'],[1,'Yes — images or content did not load'],[2,'Yes — I could not reach the instructed product page'],[3,'Yes — another problem']];
+  var DEM1 = [[1,'Male'],[2,'Female'],[3,'Non-binary / third gender'],[4,'Prefer not to say']];
+  var DEM3 = [[1,'Less than $25,000'],[2,'$25,000–$49,999'],[3,'$50,000–$74,999'],[4,'$75,000–$99,999'],[5,'$100,000–$149,999'],[6,'$150,000 or more'],[7,'Prefer not to say']];
+  var PAGE_FIELDS = {
+    2:['lux1','lux2','lux3','lux4','pi1','pi2','pi3','wtp1','wtp1_declined'],
+    3:['rit1','rit2','rit3','rit4','rit5'],
+    4:['mc1','mc2','mc3'],
+    5:['dia1','dia2','rec1','rec2','att1','tech1'],
+    6:['dem1','dem2','dem2_declined','dem3']
+  };
+
+  /* =====================================================================
+     2. URL parameters, session state (survives refresh), API
+     ===================================================================== */
+  var params = new URLSearchParams(location.search);
+  var IS_TEST = params.get('test') === '1';
+  var FORCE = (params.get('cond')||'').toUpperCase();
+  var URL_PID = params.get('PROLIFIC_PID') || '';
+  var DEMO = !API_URL;
+  var KEY = 'ameline_study_v1' + (IS_TEST ? '_test' : '');
+  var S = load() || { stage:'consent', answers:{}, web:{} };
+  var root = document.getElementById('root');
+
+  function load(){ try{ return JSON.parse(sessionStorage.getItem(KEY)); }catch(e){ return null; } }
+  function persist(){ try{ sessionStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function now(){ return Date.now(); }
+
+  var banner = document.getElementById('banner');
+  if(DEMO){ banner.hidden = false; banner.textContent = 'Demo mode: no backend URL is set, so nothing is saved. Add API_URL before launching.'; }
+  else if(IS_TEST){ banner.hidden = false; banner.textContent = 'Test session: this record is saved with is_test = 1 and kept out of the formal export.'; }
+
+  // Demo backend (used only when API_URL is empty) so the flow can be previewed.
+  var demoDb = {};
+  function demoApi(p){
+    if(p.action==='start'){
+      if(p.consent!==1) return {ok:true, consented:false, response_id:'DEMO-NC'};
+      var c = (p.force_condition===0||p.force_condition===1) ? p.force_condition : (Math.random()<.5?0:1);
+      return {ok:true, response_id:'DEMO-'+now().toString(36).toUpperCase(), condition:c, case_status:1, saved:{}};
+    }
+    demoDb[p.action+'_'+now()] = p; console.log('[demo save]', p); return {ok:true};
+  }
+
+  function api(payload, tries){
+    tries = tries || 0;
+    if(DEMO) return new Promise(function(res){ setTimeout(function(){ res(demoApi(payload)); }, 150); });
+    return fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(!res.ok && res.retry && tries < 3) return new Promise(function(r){ setTimeout(r, 1200*(tries+1)); }).then(function(){ return api(payload, tries+1); });
+        if(!res.ok) throw new Error(res.error || 'Save failed');
+        return res;
+      });
+  }
+
+  /* =====================================================================
+     3. Small render helpers
+     ===================================================================== */
+  function frame(inner, pageLabel){
+    return '<div class="top"><div class="in"><b>Website Browsing Study</b><span>'+(pageLabel||'')+'</span></div></div><main>'+inner+'</main>';
+  }
+  function likert(items){
+    var head = '<tr><th class="st" scope="col"><span class="sr">Statement</span></th>'+[1,2,3,4,5,6,7].map(function(n){ return '<th scope="col">'+n+'</th>'; }).join('')+'</tr>';
+    var rows = items.map(function(it){
+      var v = S.answers[it[0]];
+      return '<tr><td class="st" id="lbl-'+it[0]+'">'+esc(it[1])+'</td>'+[1,2,3,4,5,6,7].map(function(n){
+        return '<td><label><input type="radio" name="'+it[0]+'" value="'+n+'" aria-label="'+n+'" aria-describedby="lbl-'+it[0]+'"'+(v===n?' checked':'')+'></label></td>';
+      }).join('')+'</tr>';
+    }).join('');
+    return '<table class="likert"><thead>'+head+'</thead><tbody>'+rows+'</tbody></table>';
+  }
+  function radios(name, opts, two){
+    var v = S.answers[name];
+    var html = opts.map(function(o){
+      return '<label class="choice"><input type="radio" name="'+name+'" value="'+o[0]+'"'+(v===o[0]?' checked':'')+'><span>'+esc(o[1])+'</span></label>';
+    }).join('');
+    return two ? '<div class="grid2">'+html+'</div>' : html;
+  }
+  function readRadio(name){ var el = root.querySelector('input[name="'+name+'"]:checked'); return el ? Number(el.value) : null; }
+  function setMsg(text, cls){ var m = document.getElementById('msg'); if(m){ m.textContent = text||''; m.className = 'msg '+(cls||''); } }
+  function busy(on){ root.querySelectorAll('.actions .btn').forEach(function(b){ b.disabled = on; }); }
+
+  /* =====================================================================
+     4. Page 1 — introduction, consent, Prolific ID, instructions
+     ===================================================================== */
+  function renderConsent(){
+    var pid = S.pid || URL_PID || '';
+    root.innerHTML = frame(
+      '<section class="card">'+
+        '<p class="pg">Page 01</p>'+
+        '<h1>Introduction and consent</h1>'+
+        '<p>Thank you for considering this study. You will browse a simulated handbag website and then answer questions about your browsing experience and the Bonbon Mini handbag. There are no right or wrong opinions; please answer honestly.</p>'+
+        '<div class="notice">'+
+          '<h2>Study information and data-use notice</h2>'+
+          '<p>Participation is voluntary. You must be at least 18 years old. You may stop at any time and may skip opinion questions you do not wish to answer. No purchase or payment is required. Please use a desktop or laptop computer.</p>'+
+          '<p>We will use your questionnaire responses and study-related website-navigation records for academic research. Your Prolific ID links study records and participation administration, so these records are not fully anonymous.</p>'+
+          '<p>Please read the study information and data-use notice before deciding whether to participate. Estimated duration and compensation are as stated on the recruitment page.</p>'+
+        '</div>'+
+        '<p class="qt" style="font-weight:400">I confirm that I am at least 18 years old, have read the study information, and agree to participate.</p>'+
+        '<label class="choice"><input type="radio" name="consent" value="1"><span>Yes, I agree.</span></label>'+
+        '<label class="choice"><input type="radio" name="consent" value="0"><span>No, I do not agree.</span></label>'+
+        '<div id="yesPart" hidden>'+
+          '<label class="field"><span>Prolific ID:</span><input type="text" id="pid" value="'+esc(pid)+'" autocomplete="off" spellcheck="false"></label>'+
+          '<div class="notice">'+
+            '<h2>Before you begin</h2>'+
+            '<ol class="steps">'+
+              '<li>Begin with Explore the collection. Read the collection and story content, using Discover the story and See the pieces to continue.</li>'+
+              '<li>In The Pieces, the four cards show different colors of the same Bonbon Mini handbag. Open any color card and review the product page, including Description and Dimensions &amp; materials. Follow the collection content rather than menu shortcuts.</li>'+
+              '<li>You may change the color on the product page. The questions will refer to the Bonbon Mini in the color selected when you finish browsing.</li>'+
+              '<li>When you have finished reviewing the product page, select Continue to questions. The questionnaire will appear here, in the same tab. You do not need to add anything to a bag, check out, sign in, subscribe, or contact an advisor.</li>'+
+            '</ol>'+
+          '</div>'+
+        '</div>'+
+        '<div class="actions"><button class="btn right" id="go" disabled>Start browsing</button></div>'+
+        '<p class="msg" id="msg" role="status"></p>'+
+      '</section>', 'Page 1 of 7');
+
+    var go = document.getElementById('go');
+    function sync(){
+      if(!document.getElementById('yesPart')) return;   // consent page already left
+      var c = readRadio('consent');
+      document.getElementById('yesPart').hidden = c !== 1;
+      go.textContent = c === 0 ? 'Submit' : 'Start browsing';
+      var pidOk = (document.getElementById('pid').value.trim().length > 0) || IS_TEST;
+      go.disabled = c === null || (c === 1 && !pidOk);
+    }
+    root.addEventListener('change', sync);
+    document.getElementById('pid').addEventListener('input', sync);
+    go.addEventListener('click', function(){
+      var c = readRadio('consent');
+      var pidVal = document.getElementById('pid').value.trim();
+      if(c===1 && !pidVal && IS_TEST) pidVal = 'TEST-' + now().toString(36).toUpperCase() + Math.floor(Math.random()*1000);
+      busy(true); setMsg('Please wait…');
+      var payload = {action:'start', consent:c, prolific_pid: c===1 ? pidVal : '', is_test: IS_TEST?1:0};
+      if(IS_TEST && (FORCE==='A'||FORCE==='B')) payload.force_condition = FORCE==='A'?0:1;
+      api(payload).then(function(res){
+        if(!res.consented && c===0){ S.stage='noconsent'; S.rid = res.response_id; persist(); return route(); }
+        S.rid = res.response_id; S.cond = res.condition; S.pid = pidVal;
+        Object.keys(res.saved||{}).forEach(function(k){ S.answers[k] = res.saved[k]; });
+        if(res.saved && res.saved.survey_color_code) S.color = res.saved.survey_color_code;
+        var cs = res.case_status;
+        if(cs === 4) S.stage = 'done';
+        else if(cs === 5 || cs === 6) S.stage = 'ended';
+        else if(cs === 3 && S.color){ S.stage = 'q'; S.qpage = S.qpage || 2; S.web.resumed = true; }
+        else { S.stage = 'browse'; if(res.resumed) S.web.resumed = true; }
+        persist(); route();
+      }).catch(function(err){
+        busy(false); sync(); setMsg('We could not reach the study server. Please check your connection and try again. ('+err.message+')', 'err');
+      });
+    });
+  }
+
+  function renderNoConsent(){
+    root.innerHTML = frame('<section class="card"><h1>Thank you</h1><p>You chose not to take part, so the study ends here. No website or questionnaire responses were collected.</p><p class="muted">Please return the study on Prolific.</p></section>', '');
+  }
+
+  /* =====================================================================
+     5. Browsing stage — the assigned website in a full-screen frame
+     ===================================================================== */
+  var visTimer = null;
+  function webVisibleTick(){
+    // add visible time since the last tick while the website is open and the tab is visible
+    var w = S.web, t = now();
+    if(w.visSince){ w.visibleMs = (w.visibleMs||0) + (t - w.visSince); }
+    w.visSince = (document.visibilityState === 'visible' && S.stage === 'browse') ? t : null;
+    persist();
+  }
+
+  function renderBrowse(){
+    var w = S.web;
+    if(w.loadedOnce){ w.gap = true; }                 // a reload / resume happened during browsing
+    if(w.resumed){ w.gap = true; }
+    w.loadedOnce = true;
+    w.thisLoadSeenFirst = false;
+    persist();
+    root.innerHTML =
+      '<iframe id="site" title="Maison Améline website" src="store.html?study=1&v='+(S.cond===1?'B':'A')+'"></iframe>'+
+      '<button class="help" id="help" type="button">Problem with the study?</button>';
+    document.getElementById('help').addEventListener('click', openHelp);
+    if(visTimer) clearInterval(visTimer);
+    visTimer = setInterval(webVisibleTick, 5000);
+    api({action:'status', response_id:S.rid, case_status:2, browse:{timing_status: w.gap ? 2 : 1}}).catch(function(){});
+  }
+
+  window.addEventListener('message', function(ev){
+    var d = ev.data;
+    if(!d || d.source !== 'ameline' || S.stage !== 'browse') return;
+    var w = S.web;
+    if(d.evt === 'page_view'){
+      if(!w.thisLoadSeenFirst){
+        w.thisLoadSeenFirst = true;
+        if(!w.start){ w.start = now(); w.visibleMs = 0; w.visSince = document.visibilityState==='visible' ? now() : null; w.transitions = 0; w.seen = []; }
+        else { w.visSince = document.visibilityState==='visible' ? now() : null; }   // reload: not a transition
+      } else if(w.pdpAt === undefined) {
+        w.transitions = (w.transitions||0) + 1;
+      }
+      var mods = d.modules || '';
+      if(mods === 'pdp'){
+        if(w.pdpAt === undefined){
+          w.pdpAt = w.transitions || 0;
+          var needed = ROUTE_PAGES[S.cond] || [];
+          w.bypass = needed.every(function(m){ return (w.seen||[]).indexOf(m) >= 0; }) ? 0 : 1;
+        }
+        w.onPdp = true;
+      } else {
+        w.onPdp = false;
+        if((w.seen||[]).indexOf(mods) < 0) (w.seen = w.seen||[]).push(mods);
+      }
+      persist();
+    }
+    if(d.evt === 'continue' && d.color_code){
+      finishBrowsing(Number(d.color_code));
+    }
+  });
+
+  function finishBrowsing(code){
+    var w = S.web;
+    webVisibleTick();
+    if(visTimer){ clearInterval(visTimer); visTimer = null; }
+    S.color = code;
+    var browse = {
+      task_complete: 1,
+      website_elapsed_s: w.start ? Math.max(0,(now()-w.start)/1000) : null,
+      website_visible_s: w.start ? Math.max(0,(w.visibleMs||0)/1000) : null,
+      transitions_to_pdp: w.pdpAt === undefined ? null : w.pdpAt,
+      bypass_flag: w.bypass === undefined ? null : w.bypass,
+      timing_status: w.start ? (w.gap ? 2 : 1) : 0
+    };
+    S.stage = 'q'; S.qpage = 2; S.q2Start = S.q2Start || now();
+    S.answers.survey_color_code = code;
+    persist();
+    root.innerHTML = frame('<div class="loading">Saving your browsing record…</div>');
+    var attempt = function(){
+      api({action:'status', response_id:S.rid, case_status:3, fields:{survey_color_code:code}, browse:browse})
+        .then(function(){ route(); })
+        .catch(function(err){
+          root.innerHTML = frame('<section class="card"><h2>We could not save your progress</h2><p>Please check your internet connection and try again.</p><div class="actions"><button class="btn" id="retry">Try again</button></div><p class="msg err">'+esc(err.message)+'</p></section>');
+          document.getElementById('retry').onclick = attempt;
+        });
+    };
+    attempt();
+  }
+
+  function openHelp(){
+    var dlg = document.createElement('div');
+    dlg.className = 'dialog'; dlg.setAttribute('role','dialog'); dlg.setAttribute('aria-modal','true');
+    dlg.innerHTML = '<div class="card"><h2>Problem with the study?</h2>'+
+      '<p class="small">If the website does not work for you, or you would like to stop, choose an option below. If everything works, simply close this box and keep browsing.</p>'+
+      '<label class="choice"><input type="radio" name="endkind" value="technical"><span>A technical problem stops me from completing the browsing task</span></label>'+
+      '<label class="choice"><input type="radio" name="endkind" value="unfinished"><span>I would like to stop the study without finishing</span></label>'+
+      '<label class="field"><span>Please describe any problem (optional).</span><textarea id="probtext"></textarea></label>'+
+      '<div class="actions"><button class="btn ghost" id="cl" type="button">Keep browsing</button><button class="btn right" id="endgo" type="button" disabled>End the study</button></div><p class="msg" id="dmsg"></p></div>';
+    document.body.appendChild(dlg);
+    var endgo = dlg.querySelector('#endgo');
+    dlg.addEventListener('change', function(){ endgo.disabled = !dlg.querySelector('input[name=endkind]:checked'); });
+    dlg.querySelector('#cl').onclick = function(){ dlg.remove(); };
+    endgo.onclick = function(){
+      var kind = dlg.querySelector('input[name=endkind]:checked').value;
+      webVisibleTick();
+      var w = S.web;
+      endgo.disabled = true; dlg.querySelector('#dmsg').textContent = 'Saving…';
+      api({action:'end', response_id:S.rid, kind:kind, browse:{
+        task_problem_text: dlg.querySelector('#probtext').value.trim() || null,
+        website_elapsed_s: null, website_visible_s: null,
+        transitions_to_pdp: w.pdpAt === undefined ? null : w.pdpAt,
+        bypass_flag: w.bypass === undefined ? null : w.bypass,
+        timing_status: w.start ? 3 : 0
+      }}).then(function(){
+        dlg.remove(); if(visTimer) clearInterval(visTimer);
+        S.stage = 'ended'; persist(); route();
+      }).catch(function(err){ endgo.disabled = false; dlg.querySelector('#dmsg').textContent = 'Could not save: '+err.message; });
+    };
+  }
+
+  function renderEnded(){
+    root.innerHTML = frame('<section class="card"><h1>Thank you</h1><p>Your study session has ended and your choice has been recorded.</p><p class="muted">Please return to Prolific. If you experienced a technical problem, you may also message the researcher through Prolific.</p></section>', '');
+  }
+
+  /* =====================================================================
+     6. Questionnaire pages 2–6, thank-you page 7
+     ===================================================================== */
+  function targetCard(){
+    var c = COLORS[S.color] || COLORS[1];
+    return '<div class="target"><img src="assets/bonbon-'+(S.color||1)+'.jpg" alt="Bonbon Mini in '+esc(c.name)+'">'+
+      '<div><b>Maison Améline — Bonbon Mini</b><p class="c">Color: '+esc(c.name)+'</p>'+
+      '<p class="n">All questions on this page refer only to the Bonbon Mini in the color shown above, as selected on the product page—not to the website or brand as a whole.</p></div></div>';
+  }
+
+  function page2(){
+    var declined = S.answers.wtp1_declined === 1;
+    var w = (S.answers.wtp1 === null || S.answers.wtp1 === undefined || declined) ? '' : S.answers.wtp1;
+    return '<p class="pg">Page 02</p><h1>Your impressions of the handbag</h1>'+ targetCard()+
+      '<div class="sec"><h2>Your impressions</h2><p class="scale-note">'+AGREE_NOTE+'</p>'+likert(P2_LUX)+'</div>'+
+      '<div class="sec"><h2>Buying this handbag</h2><p class="scale-note">Please use the same 1–7 agreement scale for the Bonbon Mini shown above at US$420.</p>'+likert(P2_PI)+'</div>'+
+      '<div class="sec"><h2>Your maximum payment</h2>'+
+        '<p>What is the maximum amount you would personally be willing to pay for one Bonbon Mini in the color shown above, before sales tax?</p>'+
+        '<p class="small muted">Enter an amount in US dollars. Enter 0 if you would not be willing to pay anything for this handbag. This is hypothetical; no payment will be taken.</p>'+
+        '<div class="wtp"><span class="cur">US$</span><input type="number" id="wtp1" min="0" step="any" inputmode="decimal" value="'+esc(w)+'"'+(declined?' disabled':'')+' aria-label="Maximum amount in US dollars">'+
+        '<label class="choice inline"><input type="checkbox" id="wtp1_declined"'+(declined?' checked':'')+'><span>Prefer not to answer</span></label></div>'+
+      '</div>';
+  }
+  function page3(){
+    return '<p class="pg">Page 03</p><h1>Your browsing experience</h1>'+
+      '<p>Think about the browsing process you personally completed, from the homepage through the collection content to the Bonbon Mini product page. Please rate the process itself, rather than the handbag’s appearance or how much you liked it.</p>'+
+      '<p class="small muted">Choose one number for each statement. You may leave an opinion item unanswered.</p>'+
+      '<p class="scale-note">'+AGREE_NOTE+'</p>'+likert(P3_RIT);
+  }
+  function page4(){
+    return '<p class="pg">Page 04</p><h1>The browsing route</h1>'+
+      '<p>The following questions concern the route from the homepage to the Bonbon Mini product page. Please indicate how much you agree with each statement.</p>'+
+      '<p class="small muted">Choose one number for each statement. You may leave an opinion item unanswered.</p>'+
+      '<p class="scale-note">'+AGREE_NOTE+'</p>'+likert(P4_MC);
+  }
+  function page5(){
+    var t = S.answers.tech1;
+    return '<p class="pg">Page 05</p><h1>A few questions about the website</h1>'+
+      '<div class="sec"><h2>About the website</h2><p class="scale-note">'+AGREE_NOTE+'</p>'+likert(P5_DIA)+'</div>'+
+      '<div class="sec"><h2>What you viewed</h2>'+
+        '<div class="q"><p class="qt">What purchase-action button was shown on the Bonbon Mini product page?</p>'+radios('rec1',REC1,true)+'</div>'+
+        '<div class="q"><p class="qt">In the brand story, why did Améline Roux make the first bag?</p>'+radios('rec2',REC2,true)+'</div></div>'+
+      '<div class="sec"><h2>Please read carefully</h2><div class="q"><p class="qt">To make sure you are paying attention, please select option 6 for this question.</p>'+
+        '<div class="single7">'+[1,2,3,4,5,6,7].map(function(n){ return '<label class="choice"><input type="radio" name="att1" value="'+n+'"'+(S.answers.att1===n?' checked':'')+'><span>'+n+'</span></label>'; }).join('')+'</div></div></div>'+
+      '<div class="sec"><h2>Technical feedback</h2><div class="q"><p class="qt">Did a technical problem interfere with the instructed browsing task?</p>'+radios('tech1',TECH1)+
+        '<label class="field" id="t1t"'+(t===3?'':' hidden')+'><span>If another problem occurred, please describe it (optional):</span><textarea id="tech1_text">'+esc(S.answers.tech1_text||'')+'</textarea></label></div></div>';
+  }
+  function page6(){
+    var decl = S.answers.dem2_declined === 1;
+    var age = (S.answers.dem2 === null || S.answers.dem2 === undefined || decl) ? '' : S.answers.dem2;
+    return '<p class="pg">Page 06</p><h1>About you</h1>'+
+      '<div class="q"><p class="qt">What is your gender?</p>'+radios('dem1',DEM1)+'</div>'+
+      '<div class="q"><h2>Age</h2><p class="qt">What is your age? Please enter a whole number.</p>'+
+        '<div class="wtp"><input type="number" id="dem2" min="0" max="130" step="1" inputmode="numeric" value="'+esc(age)+'"'+(decl?' disabled':'')+' aria-label="Age in years">'+
+        '<label class="choice inline"><input type="checkbox" id="dem2_declined"'+(decl?' checked':'')+'><span>Prefer not to say</span></label></div></div>'+
+      '<div class="q"><p class="qt">What is your annual household income (US dollars)?</p>'+radios('dem3',DEM3)+'</div>';
+  }
+  function page7(){
+    return '<p class="pg">Page 07</p><h1>Thank you</h1>'+
+      '<p>Thank you for taking part. This study examines how the organization of a brand website may influence browsing experiences and product impressions. Different participants viewed different arrangements of the same website content.</p>'+
+      '<p>The brand presentation, story, product and shopping functions were used as research stimuli, not as an invitation to place a real order. No purchase, payment, account registration or advisor appointment is required.</p>'+
+      '<p>Select Finish below to submit your responses and return to Prolific.</p>';
+  }
+  var PAGES = {2:page2, 3:page3, 4:page4, 5:page5, 6:page6, 7:page7};
+
+  function renderQ(){
+    var n = S.qpage || 2;
+    var back = n > 2 ? '<button class="btn ghost" id="back" type="button">Back</button>' : '';
+    var next = n < 7 ? '<button class="btn right" id="next" type="button">Next</button>' : '<button class="btn right" id="finish" type="button">Finish and return to Prolific</button>';
+    root.innerHTML = frame('<section class="card">'+PAGES[n]()+'<div class="actions">'+back+next+'</div><p class="msg" id="msg" role="status"></p></section>', 'Page '+n+' of 7');
+    window.scrollTo(0,0);
+    wireLinks();
+    if(document.getElementById('back')) document.getElementById('back').onclick = function(){ saveAndGo(n, n-1); };
+    if(document.getElementById('next')) document.getElementById('next').onclick = function(){ saveAndGo(n, n+1); };
+    if(document.getElementById('finish')) document.getElementById('finish').onclick = finish;
+  }
+
+  function wireLinks(){
+    var wd = document.getElementById('wtp1_declined');
+    if(wd) wd.onchange = function(){ var i = document.getElementById('wtp1'); i.disabled = wd.checked; i.value = ''; };
+    var ad = document.getElementById('dem2_declined');
+    if(ad) ad.onchange = function(){ var i = document.getElementById('dem2'); i.disabled = ad.checked; i.value = ''; };
+    root.querySelectorAll('input[name=tech1]').forEach(function(r){
+      r.onchange = function(){ var box = document.getElementById('t1t'); box.hidden = readRadio('tech1') !== 3; if(box.hidden) document.getElementById('tech1_text').value=''; };
+    });
+  }
+
+  // Reads the current page's inputs into {fields, browse} or returns {error}
+  function collect(n){
+    var f = {}, b = {};
+    PAGE_FIELDS[n].forEach(function(k){
+      if(k === 'wtp1'){
+        var decl = document.getElementById('wtp1_declined').checked;
+        f.wtp1_declined = decl ? 1 : 0;
+        var raw = document.getElementById('wtp1').value.trim();
+        if(decl || raw === '') f.wtp1 = null;
+        else {
+          var v = Number(raw);
+          if(!isFinite(v) || v < 0) return (f.__err = 'Please enter an amount of 0 or more, or leave it blank.');
+          f.wtp1 = v;
+        }
+        return;
+      }
+      if(k === 'wtp1_declined') return;
+      if(k === 'dem2'){
+        var d = document.getElementById('dem2_declined').checked;
+        f.dem2_declined = d ? 1 : 0;
+        var a = document.getElementById('dem2').value.trim();
+        if(d || a === '') f.dem2 = null;
+        else {
+          var age = Number(a);
+          if(!isFinite(age) || Math.floor(age) !== age || age < 0 || age > 130) return (f.__err = 'Please enter your age as a whole number, or select Prefer not to say.');
+          f.dem2 = age;
+        }
+        return;
+      }
+      if(k === 'dem2_declined') return;
+      f[k] = readRadio(k);
+    });
+    if(n === 5){ b.tech1_text = f.tech1 === 3 ? (document.getElementById('tech1_text').value.trim() || null) : null; }
+    return f.__err ? {error:f.__err} : {fields:f, browse:b};
+  }
+
+  function saveAndGo(n, to){
+    var c = collect(n);
+    if(c.error){ setMsg(c.error, 'err'); return; }
+    busy(true); setMsg('Saving…');
+    api({action:'save', response_id:S.rid, case_status:3, fields:c.fields, browse:c.browse}).then(function(){
+      Object.keys(c.fields).forEach(function(k){ S.answers[k] = c.fields[k]; });
+      if(c.browse.tech1_text !== undefined) S.answers.tech1_text = c.browse.tech1_text;
+      S.qpage = to; persist(); renderQ();
+    }).catch(function(err){
+      busy(false); setMsg('Your answers could not be saved. Please check your connection and select the button again. ('+err.message+')', 'err');
+    });
+  }
+
+  function finish(){
+    busy(true); setMsg('Submitting your responses…');
+    var qs = S.q2Start ? Math.max(0,(now()-S.q2Start)/1000) : null;
+    api({action:'finish', response_id:S.rid, fields:{}, browse:{questionnaire_elapsed_s: qs}}).then(function(){
+      S.stage = 'done'; persist();
+      if(PROLIFIC_COMPLETION_URL && !IS_TEST){ location.href = PROLIFIC_COMPLETION_URL; return; }
+      route();
+    }).catch(function(err){
+      busy(false); setMsg('Your responses could not be submitted yet. Please check your connection and select Finish again. ('+err.message+')', 'err');
+    });
+  }
+
+  function renderDone(){
+    var code = PROLIFIC_COMPLETION_CODE ? '<p>Your Prolific completion code is <b>'+esc(PROLIFIC_COMPLETION_CODE)+'</b>.</p>' : '';
+    var link = PROLIFIC_COMPLETION_URL ? '<div class="actions"><a class="btn" href="'+esc(PROLIFIC_COMPLETION_URL)+'">Return to Prolific</a></div>' : '';
+    root.innerHTML = frame('<section class="card"><h1>Your responses have been saved</h1><p>Thank you for taking part.</p>'+code+link+(IS_TEST?'<p class="muted small">Test session complete (is_test = 1).</p>':'')+'</section>', '');
+  }
+
+  /* =====================================================================
+     7. Router
+     ===================================================================== */
+  document.addEventListener('visibilitychange', function(){ if(S.stage === 'browse') webVisibleTick(); });
+
+  function route(){
+    switch(S.stage){
+      case 'browse': return renderBrowse();
+      case 'q': return renderQ();
+      case 'done': return renderDone();
+      case 'ended': return renderEnded();
+      case 'noconsent': return renderNoConsent();
+      default: return renderConsent();
+    }
+  }
+  route();
+})();
+</script>
+</body>
+</html>
