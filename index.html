@@ -17,7 +17,8 @@
   Before launch: paste the Apps Script /exec URL into API_URL and the Prolific completion URL below.
 -->
 <script>
-  var API_URL = 'https://script.google.com/macros/s/AKfycbyliodgAV0udkcuHZZYdojOhWAoIhmgeAkvevrkNZWXnRjjmHvTujBiF0FYqYnpS9Uy3Q/exec';                      // Google Apps Script web-app URL ending in /exec. Empty = demo mode (nothing saved).
+  var API_URL = 'https://script.google.com/macros/s/AKfycbz1_mCXBqmGCm8maOkuytdi-CxBOtH3TD72H-mXt1MvwqcYya8xfcZ24uXdce_1onSL/exec';                      // 必填：粘贴 Google Apps Script 部署后的 /exec 网址。
+  // v2: formal collection is blocked until API_URL is set. ?test=1 may preview without saving.
   var PROLIFIC_COMPLETION_URL = '';      // e.g. https://app.prolific.com/submissions/complete?cc=XXXXXXX
   var PROLIFIC_COMPLETION_CODE = '';     // shown to the participant if the URL above is empty
 </script>
@@ -173,9 +174,27 @@ tr.missing td{background:#FBF1F1}
   var FORCE = (params.get('cond')||'').toUpperCase();
   var URL_PID = params.get('PROLIFIC_PID') || '';
   var DEMO = !API_URL;
-  var KEY = 'ameline_study_v1' + (IS_TEST ? '_test' : '');
+  var KEY = 'ameline_study_v2|' + API_URL + '|' + (IS_TEST ? 'test' : 'real') + '|' + URL_PID + '|' + (IS_TEST ? FORCE : '');
   var S = load() || { stage:'consent', answers:{}, web:{} };
+  // A different participant URL / backend must never reuse another local session.
   var root = document.getElementById('root');
+  var autoTimer = null, autoInFlight = false, autoAgain = false, autoRevision = 0;
+  var navigating = false, saveQueue = Promise.resolve();
+
+  function newClientKey(){
+    var bytes = new Uint8Array(32); window.crypto.getRandomValues(bytes);
+    return Array.from(bytes).map(function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
+  }
+  function clientKeyFor(pid){
+    if(S.clientKey && S.pid === pid) return S.clientKey;
+    var k = 'ameline_access_v2|' + API_URL + '|' + (IS_TEST?'test':'real') + '|' + pid;
+    var value = null;
+    try { value = localStorage.getItem(k); } catch(e){}
+    if(!value || !/^[a-f0-9]{64}$/.test(value)) value = newClientKey();
+    try { localStorage.setItem(k, value); } catch(e){}
+    return value;
+  }
+
 
   function load(){ try{ return JSON.parse(sessionStorage.getItem(KEY)); }catch(e){ return null; } }
   function persist(){ try{ sessionStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
@@ -197,16 +216,34 @@ tr.missing td{background:#FBF1F1}
     demoDb[p.action+'_'+now()] = p; console.log('[demo save]', p); return {ok:true};
   }
 
-  function api(payload, tries){
+  function sendRequest(payload, tries){
     tries = tries || 0;
-    if(DEMO) return new Promise(function(res){ setTimeout(function(){ res(demoApi(payload)); }, 150); });
-    return fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) })
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        if(!res.ok && res.retry && tries < 3) return new Promise(function(r){ setTimeout(r, 1200*(tries+1)); }).then(function(){ return api(payload, tries+1); });
+    if(DEMO) return new Promise(function(res){ setTimeout(function(){ res(demoApi(payload)); },150); });
+    var controller = new AbortController();
+    var timer = setTimeout(function(){ controller.abort(); },45000);
+    return fetch(API_URL, { method:'POST', credentials:'omit', redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload), signal:controller.signal })
+      .then(function(r){
+        if(!r.ok) throw new Error('Server returned HTTP '+r.status);
+        return r.json().catch(function(){ throw new Error('The server did not return JSON. Check the /exec URL and deployment access.'); });
+      }).then(function(res){
+        if(!res.ok && res.retry && tries < 2){
+          clearTimeout(timer);
+          return new Promise(function(r){ setTimeout(r,1200*(tries+1)); }).then(function(){ return sendRequest(payload,tries+1); });
+        }
         if(!res.ok) throw new Error(res.error || 'Save failed');
         return res;
-      });
+      }).catch(function(err){
+        if(err.name === 'AbortError') throw new Error('The server took too long. Please retry; your local answers are retained.');
+        throw err;
+      }).finally(function(){ clearTimeout(timer); });
+  }
+  function api(payload){
+    // Serialize saves so ordinary autosaves never overtake Next / final submission.
+    payload = Object.assign({},payload,{client_key:S.clientKey});
+    var job = saveQueue.then(function(){ return sendRequest(payload); });
+    saveQueue = job.catch(function(){});
+    return job;
   }
 
   /* =====================================================================
@@ -234,7 +271,7 @@ tr.missing td{background:#FBF1F1}
   }
   function readRadio(name){ var el = root.querySelector('input[name="'+name+'"]:checked'); return el ? Number(el.value) : null; }
   function setMsg(text, cls){ var m = document.getElementById('msg'); if(m){ m.textContent = text||''; m.className = 'msg '+(cls||''); } }
-  function busy(on){ root.querySelectorAll('.actions .btn').forEach(function(b){ b.disabled = on; }); }
+  function busy(on){ root.querySelectorAll('.actions .btn').forEach(function(b){ b.disabled = on; }); if(S.stage==='q') root.querySelectorAll('input,textarea').forEach(function(el){el.disabled=on;}); }
 
   /* =====================================================================
      4. Page 1 — introduction, consent, Prolific ID, instructions
@@ -286,13 +323,15 @@ tr.missing td{background:#FBF1F1}
       var c = readRadio('consent');
       var pidVal = document.getElementById('pid').value.trim();
       if(c===1 && !pidVal && IS_TEST) pidVal = 'TEST-' + now().toString(36).toUpperCase() + Math.floor(Math.random()*1000);
+      S.clientKey = clientKeyFor(c===1 ? pidVal : 'NO_CONSENT');
+      S.pid = c===1 ? pidVal : ''; persist(); // Persist BEFORE sending: a retry keeps its identity.
       busy(true); setMsg('Please wait…');
       var payload = {action:'start', consent:c, prolific_pid: c===1 ? pidVal : '', is_test: IS_TEST?1:0};
       if(IS_TEST && (FORCE==='A'||FORCE==='B')) payload.force_condition = FORCE==='A'?0:1;
       api(payload).then(function(res){
         if(!res.consented && c===0){ S.stage='noconsent'; S.rid = res.response_id; persist(); return route(); }
         S.rid = res.response_id; S.cond = res.condition; S.pid = pidVal;
-        Object.keys(res.saved||{}).forEach(function(k){ S.answers[k] = res.saved[k]; });
+        Object.keys(res.saved||{}).forEach(function(k){ if(!(k in S.answers)) S.answers[k] = res.saved[k]; });
         if(res.saved && res.saved.survey_color_code) S.color = res.saved.survey_color_code;
         var cs = res.case_status;
         if(cs === 4) S.stage = 'done';
@@ -324,13 +363,14 @@ tr.missing td{background:#FBF1F1}
 
   function renderBrowse(){
     var w = S.web;
+    w.visSince = null; // Do not count a reload / closed-tab gap as visible time.
     if(w.loadedOnce){ w.gap = true; }                 // a reload / resume happened during browsing
     if(w.resumed){ w.gap = true; }
     w.loadedOnce = true;
     w.thisLoadSeenFirst = false;
     persist();
     root.innerHTML =
-      '<iframe id="site" title="Maison Améline website" src="store.html?study=1&v='+(S.cond===1?'B':'A')+'"></iframe>'+
+      '<iframe id="site" title="Maison Améline website" src="store.html?rev=ameline-v2&study=1&v='+(S.cond===1?'B':'A')+'"></iframe>'+
       '<button class="help" id="help" type="button">Problem with the study?</button>';
     document.getElementById('help').addEventListener('click', openHelp);
     if(visTimer) clearInterval(visTimer);
@@ -339,6 +379,8 @@ tr.missing td{background:#FBF1F1}
   }
 
   window.addEventListener('message', function(ev){
+    var iframe = document.getElementById('site');
+    if(!iframe || ev.source !== iframe.contentWindow || ev.origin !== location.origin) return;
     var d = ev.data;
     if(!d || d.source !== 'ameline' || S.stage !== 'browse') return;
     var w = S.web;
@@ -356,6 +398,7 @@ tr.missing td{background:#FBF1F1}
           w.pdpAt = w.transitions || 0;
           var needed = ROUTE_PAGES[S.cond] || [];
           w.bypass = needed.every(function(m){ return (w.seen||[]).indexOf(m) >= 0; }) ? 0 : 1;
+          api({action:'status', response_id:S.rid, browse:{transitions_to_pdp:w.pdpAt, bypass_flag:w.bypass}}).catch(function(){ /* retried in the complete browse snapshot */ });
         }
         w.onPdp = true;
       } else {
@@ -370,31 +413,34 @@ tr.missing td{background:#FBF1F1}
   });
 
   function finishBrowsing(code){
+    if(S.stage !== 'browse' || !S.web.onPdp || [1,2,3,4].indexOf(code)<0) return;
     var w = S.web;
-    webVisibleTick();
+    webVisibleTick(); w.visSince = null;
     if(visTimer){ clearInterval(visTimer); visTimer = null; }
     S.color = code;
-    var browse = {
-      task_complete: 1,
-      website_elapsed_s: w.start ? Math.max(0,(now()-w.start)/1000) : null,
-      website_visible_s: w.start ? Math.max(0,(w.visibleMs||0)/1000) : null,
-      transitions_to_pdp: w.pdpAt === undefined ? null : w.pdpAt,
-      bypass_flag: w.bypass === undefined ? null : w.bypass,
-      timing_status: w.start ? (w.gap ? 2 : 1) : 0
+    S.pendingBrowse = {
+      task_complete:1,
+      website_elapsed_s:w.start ? Math.max(0,(now()-w.start)/1000) : null,
+      website_visible_s:w.start ? Math.max(0,(w.visibleMs||0)/1000) : null,
+      transitions_to_pdp:w.pdpAt === undefined ? null : w.pdpAt,
+      bypass_flag:w.bypass === undefined ? null : w.bypass,
+      timing_status:w.start ? (w.gap ? 2 : 1) : 0
     };
-    S.stage = 'q'; S.qpage = 2; S.q2Start = S.q2Start || now();
     S.answers.survey_color_code = code;
-    persist();
+    S.stage = 'browseSaving'; persist();
+    saveBrowsing();
+  }
+  function saveBrowsing(){
     root.innerHTML = frame('<div class="loading">Saving your browsing record…</div>');
-    var attempt = function(){
-      api({action:'status', response_id:S.rid, case_status:3, fields:{survey_color_code:code}, browse:browse})
-        .then(function(){ route(); })
-        .catch(function(err){
-          root.innerHTML = frame('<section class="card"><h2>We could not save your progress</h2><p>Please check your internet connection and try again.</p><div class="actions"><button class="btn" id="retry">Try again</button></div><p class="msg err">'+esc(err.message)+'</p></section>');
-          document.getElementById('retry').onclick = attempt;
-        });
-    };
-    attempt();
+    api({action:'status',response_id:S.rid,case_status:3,
+      fields:{survey_color_code:S.color},browse:S.pendingBrowse || {}})
+      .then(function(){
+        S.pendingBrowse = null; S.stage = 'q'; S.qpage = 2;
+        S.q2Start = S.q2Start || now(); persist(); route();
+      }).catch(function(err){
+        root.innerHTML = frame('<section class="card"><h2>We could not save your progress</h2><p>Your progress is retained in this browser. Please check your internet connection and try again.</p><div class="actions"><button class="btn" id="retry">Try again</button></div><p class="msg err">'+esc(err.message)+'</p></section>');
+        document.getElementById('retry').onclick = saveBrowsing;
+      });
   }
 
   function openHelp(){
@@ -498,12 +544,17 @@ tr.missing td{background:#FBF1F1}
   var PAGES = {2:page2, 3:page3, 4:page4, 5:page5, 6:page6, 7:page7};
 
   function renderQ(){
+    navigating = false;
     var n = S.qpage || 2;
     var back = n > 2 ? '<button class="btn ghost" id="back" type="button">Back</button>' : '';
     var next = n < 7 ? '<button class="btn right" id="next" type="button">Next</button>' : '<button class="btn right" id="finish" type="button">Finish and return to Prolific</button>';
     root.innerHTML = frame('<section class="card">'+PAGES[n]()+'<div class="actions">'+back+next+'</div><p class="msg" id="msg" role="status"></p></section>', 'Page '+n+' of 7');
     window.scrollTo(0,0);
     wireLinks();
+    if(n>=2 && n<=6){
+      root.oninput = scheduleAutosave; root.onchange = scheduleAutosave;
+      if(S.dirtyDraft) scheduleAutosave();
+    } else { root.oninput = null; root.onchange = null; }
     if(document.getElementById('back')) document.getElementById('back').onclick = function(){ saveAndGo(n, n-1); };
     if(document.getElementById('next')) document.getElementById('next').onclick = function(){ saveAndGo(n, n+1); };
     if(document.getElementById('finish')) document.getElementById('finish').onclick = finish;
@@ -547,6 +598,39 @@ tr.missing td{background:#FBF1F1}
     return {fields:f, browse:b, missing:missing};
   }
 
+  function rememberDraft(c){
+    Object.keys(c.fields).forEach(function(k){ S.answers[k] = c.fields[k]; });
+    if(c.browse.tech1_text !== undefined) S.answers.tech1_text = c.browse.tech1_text;
+    S.dirtyDraft = true; persist();
+  }
+  function scheduleAutosave(){
+    if(S.stage !== 'q' || !PAGE_FIELDS[S.qpage] || navigating) return;
+    var c = collect(S.qpage); rememberDraft(c); autoRevision++;
+    setMsg('Changes saved in this browser; syncing…');
+    clearTimeout(autoTimer); autoTimer = setTimeout(flushAutosave,1500);
+  }
+  function flushAutosave(){
+    autoTimer = null;
+    if(S.stage !== 'q' || !PAGE_FIELDS[S.qpage] || navigating) return;
+    if(autoInFlight){ autoAgain = true; return; }
+    var c = collect(S.qpage), n = S.qpage, rev = autoRevision;
+    rememberDraft(c); autoInFlight = true; autoAgain = false;
+    api({action:'save',response_id:S.rid,case_status:3,fields:c.fields,browse:c.browse})
+      .then(function(){
+        if(rev === autoRevision && S.stage === 'q' && S.qpage === n && !navigating){
+          S.dirtyDraft = false; persist();
+          setMsg(DEMO ? 'Preview only — not saved to the study database.' : 'Answers saved.','ok');
+        }
+      }).catch(function(){
+        if(S.stage === 'q' && S.qpage === n && !navigating)
+          setMsg('Not yet synced. Keep this tab open and reconnect, or select Next to retry.','err');
+      }).finally(function(){
+        autoInFlight = false;
+        if(autoAgain && !navigating && S.stage === 'q'){ autoAgain = false; clearTimeout(autoTimer); autoTimer = setTimeout(flushAutosave,1500); }
+      });
+  }
+  window.addEventListener('online',function(){ if(S.dirtyDraft) scheduleAutosave(); });
+
   // marks unanswered questions and scrolls to the first one
   function showMissing(list){
     root.querySelectorAll('.missing').forEach(function(el){ el.classList.remove('missing'); });
@@ -564,38 +648,44 @@ tr.missing td{background:#FBF1F1}
   }
 
   function saveAndGo(n, to){
-    var c = collect(n);
+    if(navigating) return;
+    var c = PAGE_FIELDS[n] ? collect(n) : {fields:{},browse:{},missing:[]};
+    rememberDraft(c);
     if(to > n && c.missing.length){
       showMissing(c.missing);
       setMsg('Please answer all questions on this page before continuing (' + c.missing.length + ' remaining).', 'err');
       return;
     }
+    clearTimeout(autoTimer); autoTimer = null; autoAgain = false; navigating = true;
     busy(true); setMsg('Saving…');
     api({action:'save', response_id:S.rid, case_status:3, fields:c.fields, browse:c.browse}).then(function(){
       Object.keys(c.fields).forEach(function(k){ S.answers[k] = c.fields[k]; });
       if(c.browse.tech1_text !== undefined) S.answers.tech1_text = c.browse.tech1_text;
-      S.qpage = to; persist(); renderQ();
+      S.dirtyDraft = false; S.qpage = to; persist(); renderQ();
     }).catch(function(err){
-      busy(false); setMsg('Your answers could not be saved. Please check your connection and select the button again. ('+err.message+')', 'err');
+      navigating = false; busy(false); setMsg('Your answers could not be saved. Please check your connection and select the button again. ('+err.message+')', 'err');
     });
   }
 
   function finish(){
+    if(navigating) return;
+    clearTimeout(autoTimer); autoTimer = null; autoAgain = false; navigating = true;
     busy(true); setMsg('Submitting your responses…');
     var qs = S.q2Start ? Math.max(0,(now()-S.q2Start)/1000) : null;
-    api({action:'finish', response_id:S.rid, fields:{}, browse:{questionnaire_elapsed_s: qs}}).then(function(){
-      S.stage = 'done'; persist();
+    var finalFields = {}; Object.keys(S.answers).forEach(function(k){ if(k !== 'tech1_text') finalFields[k] = S.answers[k]; });
+    api({action:'finish', response_id:S.rid, fields:finalFields, browse:{questionnaire_elapsed_s:qs,tech1_text:S.answers.tech1_text||null}}).then(function(){
+      S.stage = 'done'; S.dirtyDraft = false; persist();
       if(PROLIFIC_COMPLETION_URL && !IS_TEST){ location.href = PROLIFIC_COMPLETION_URL; return; }
       route();
     }).catch(function(err){
-      busy(false); setMsg('Your responses could not be submitted yet. Please check your connection and select Finish again. ('+err.message+')', 'err');
+      navigating = false; busy(false); setMsg('Your responses could not be submitted yet. Please check your connection and select Finish again. ('+err.message+')', 'err');
     });
   }
 
   function renderDone(){
     var code = PROLIFIC_COMPLETION_CODE ? '<p>Your Prolific completion code is <b>'+esc(PROLIFIC_COMPLETION_CODE)+'</b>.</p>' : '';
     var link = PROLIFIC_COMPLETION_URL ? '<div class="actions"><a class="btn" href="'+esc(PROLIFIC_COMPLETION_URL)+'">Return to Prolific</a></div>' : '';
-    root.innerHTML = frame('<section class="card"><h1>Your responses have been saved</h1><p>Thank you for taking part.</p>'+code+link+(IS_TEST?'<p class="muted small">Test session complete (is_test = 1).</p>':'')+'</section>', '');
+    root.innerHTML = frame('<section class="card"><h1>'+(DEMO?'Preview complete — no data were saved':'Your responses have been saved')+'</h1><p>Thank you for taking part.</p>'+code+link+(IS_TEST?'<p class="muted small">Test session complete (is_test = 1).</p>':'')+'</section>', '');
   }
 
   /* =====================================================================
@@ -604,7 +694,12 @@ tr.missing td{background:#FBF1F1}
   document.addEventListener('visibilitychange', function(){ if(S.stage === 'browse') webVisibleTick(); });
 
   function route(){
+    if(DEMO && !IS_TEST && params.get('preview') !== '1'){
+      root.innerHTML = frame('<section class="card"><h1>This study is not open yet</h1><p>The researcher is still configuring data collection. Please do not begin this study until the researcher confirms that it is ready.</p></section>');
+      return;
+    }
     switch(S.stage){
+      case 'browseSaving': return saveBrowsing();
       case 'browse': return renderBrowse();
       case 'q': return renderQ();
       case 'done': return renderDone();
@@ -613,6 +708,10 @@ tr.missing td{background:#FBF1F1}
       default: return renderConsent();
     }
   }
+  window.addEventListener('pagehide',function(){
+    if(S.stage === 'browse'){ webVisibleTick(); S.web.visSince = null; persist(); }
+    if(S.stage === 'q' && PAGE_FIELDS[S.qpage]){ rememberDraft(collect(S.qpage)); }
+  });
   route();
 })();
 </script>

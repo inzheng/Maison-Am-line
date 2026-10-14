@@ -395,7 +395,7 @@ body.locked{overflow:hidden}
   function log(evt, extra){
     const e = Object.assign({version, page:pageIdx+1, evt, t:Date.now()-t0}, extra||{});
     LOG.push(e);
-    try{ if(window.parent !== window) window.parent.postMessage(Object.assign({source:'ameline'}, e), '*'); }catch(_){}
+    try{ if(window.parent !== window) window.parent.postMessage(Object.assign({source:'ameline'}, e), location.origin); }catch(_){}
   }
 
   /* ---------- Drawing helpers ---------- */
@@ -468,14 +468,14 @@ body.locked{overflow:hidden}
       const p = PRODUCTS.bonbon;
       return `
       <section class="mod" id="m-products"><div class="wrap">
-        <div class="sec-head"><p class="kicker">Première Rose</p><h2>The Pieces</h2><p class="lede shop-tip">Click a bag to see its details and add it to your cart.</p></div>
+        <div class="sec-head"><p class="kicker">Première Rose</p><h2>The Pieces</h2><p class="lede shop-tip">Click a bag to see its details.</p></div>
         <div class="coll">
           <aside class="side">
             <p>Bags</p>
             ${['All bags','Mini bags'].map((x,i)=>`<button class="${i?'':'on'}" data-inert>${x}</button>`).join('')}
           </aside>
           <div class="tiles">
-            ${Object.keys(p.colors).map(c=>`<button class="tile" data-prod="bonbon" data-c="${c}" aria-label="View ${p.name} in ${COLORS[c].name}"><span class="frame" style="display:block">${photo(p.name+' in '+COLORS[c].name, false, p.colors[c])}</span><span style="display:flex;flex-direction:column;gap:2px;padding:14px 2px 0"><span class="t">${p.name}</span><span class="s">${COLORS[c].name}</span><span class="pp">${fmt(p.price)}</span><span class="shop-cta">View &amp; add to cart</span></span></button>`).join('')}
+            ${Object.keys(p.colors).map(c=>`<button class="tile" data-prod="bonbon" data-c="${c}" aria-label="View ${p.name} in ${COLORS[c].name}"><span class="frame" style="display:block">${photo(p.name+' in '+COLORS[c].name, false, p.colors[c])}</span><span style="display:flex;flex-direction:column;gap:2px;padding:14px 2px 0"><span class="t">${p.name}</span><span class="s">${COLORS[c].name}</span><span class="pp">${fmt(p.price)}</span></span></button>`).join('')}
           </div>
         </div>
       </div></section>`;
@@ -512,7 +512,7 @@ body.locked{overflow:hidden}
     return src ? photo(p.name+' in '+COLORS[c].name, false, src) : ph(p.name+' · '+COLORS[c].name+' · product photo · 4:5','pearl');
   }
 
-  const header = () => `
+  const header = (showBag) => `
     <header id="hdr"><div class="wrap">
       <div class="hrow">
         <div class="hl">
@@ -523,7 +523,7 @@ body.locked{overflow:hidden}
         <div class="hr">
           <button class="ib" data-act="account" aria-label="Account">${ico.user}</button>
           <button class="ib" data-act="favs" aria-label="Favourites">${ico.heart}<span class="badge" id="favcount">${favs.size||''}</span></button>
-          <button class="ib" data-act="bag" aria-label="Shopping bag">${ico.bag}<span class="badge" id="bagcount">${bagCount()}</span></button>
+          ${showBag ? `<button class="ib" data-act="bag" aria-label="Shopping bag">${ico.bag}<span class="badge" id="bagcount">${bagCount()}</span></button>` : ''}
         </div>
       </div>
       <nav class="top" aria-label="Main">
@@ -699,7 +699,9 @@ body.locked{overflow:hidden}
   const app = document.getElementById('app');
   function render(){
     const mods = ROUTES[version][pageIdx];
-    let html = header() + '<main>';
+    // Apply the same pre-PDP header in both versions, including the product list.
+    // PDP keeps its original Add to bag button and shopping-bag header control.
+    let html = header(mods.includes('pdp')) + '<main>';
     mods.forEach((m,i)=>{
       if(i>0 && CUES[m] && (version==='A' || m==='collection')) html += `<button class="cue" data-scroll="m-${m}">${CUES[m]}<i></i></button>`;
       html += MOD[m]();
